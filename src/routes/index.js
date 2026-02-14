@@ -97,6 +97,7 @@ router.use('/api/admin/users', manageUserRouter);
 router.use('/api/admin/vouchers', voucherRouter);
 router.use('/api/admin/bank-soal-parent-kategori', bankSoalParentCategoryRouter);
 router.use('/api/admin/generate-soal-category', generateSoalCategoryRouter);
+router.use('/api/admin/generate-soal-history', require('../api/generate-soal-history/route.admin'));
 router.use('/api/admin/soal-generate-soal', soalGenerateSoalRouter);
 router.use('/api/admin/bank-soal-kategori', bankSoalCategoryRouter);
 router.use('/api/admin/paket-kategori', kategoriPaketRouter);

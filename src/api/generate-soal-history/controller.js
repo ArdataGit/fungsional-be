@@ -17,11 +17,10 @@ const getList = async (req, res, next) => {
 
         const validate = await schema.validateAsync(req.query);
         const take = validate.take ? { take: validate.take } : {};
-        const userId = req.user.id;
-
+        const userId = Number(req.user.id);
         const where = {
-            userId: userId,
             ...filterToJson(validate),
+            userId: userId,
         };
 
         const result = await database.$transaction([
@@ -146,8 +145,11 @@ const generate = async (req, res, next) => {
 const getHistoryDetail = async (req, res, next) => {
     try {
         const { id } = req.params;
-        const history = await database.generateSoalHistory.findUnique({
-            where: { id: Number(id) },
+        const history = await database.generateSoalHistory.findFirst({
+            where: { 
+                id: Number(id),
+                ...(req.user.role !== 'ADMIN' ? { userId: Number(req.user.id) } : {}),
+            },
             include: {
                 GenerateSoalHistoryDetail: {
                     select: {
@@ -185,8 +187,15 @@ const getHistoryDetail = async (req, res, next) => {
 const getSoalDetail = async (req, res, next) => {
     try {
         const { id } = req.params;
-        const detail = await database.generateSoalHistoryDetail.findUnique({
-            where: { id: Number(id) },
+        const detail = await database.generateSoalHistoryDetail.findFirst({
+            where: { 
+                id: Number(id),
+                ...(req.user.role !== 'ADMIN' ? { 
+                    generateSoalHistory: {
+                        userId: Number(req.user.id),
+                    },
+                } : {}),
+            },
         });
 
         if (!detail) {
@@ -220,8 +229,13 @@ const answer = async (req, res, next) => {
         });
         const validate = await schema.validateAsync(req.body);
 
-        const detail = await database.generateSoalHistoryDetail.findUnique({
-            where: { id: validate.id },
+        const detail = await database.generateSoalHistoryDetail.findFirst({
+            where: { 
+                id: validate.id,
+                generateSoalHistory: {
+                    userId: Number(req.user.id),
+                },
+            },
         });
 
         if (!detail) {
@@ -271,10 +285,29 @@ const finish = async (req, res, next) => {
             _sum: { point: true },
         });
 
+        const historyCheck = await database.generateSoalHistory.findFirst({
+            where: { 
+                id: Number(id),
+                userId: Number(req.user.id),
+            },
+        });
+
+        if (!historyCheck) {
+            return res.status(404).json({ message: 'History not found or unauthorized' });
+        }
+
+        // Calculate correct count for normalized score
+        const benarCount = await database.generateSoalHistoryDetail.count({
+            where: { generateSoalHistoryId: Number(id), isCorrect: true },
+        });
+
+        // Calculate score based on user requirement: normalized to 100
+        const calculatedScore = historyCheck.jumlahSoal > 0 ? (benarCount / historyCheck.jumlahSoal) * 100 : 0;
+
         const history = await database.generateSoalHistory.update({
             where: { id: Number(id) },
             data: {
-                score: totalScore._sum.point || 0,
+                score: Math.round(calculatedScore), // Save normalized score
             },
         });
 
@@ -290,6 +323,43 @@ const finish = async (req, res, next) => {
          GROUP BY category
      `;
 
+        // Get all details for the summary table
+        const details = await database.generateSoalHistoryDetail.findMany({
+            where: { generateSoalHistoryId: Number(id) },
+            orderBy: { id: 'asc' },
+        });
+
+        // Format details for the frontend result table
+        const formattedSummary = details.map(d => {
+            let jawabanList = [];
+            try {
+                jawabanList = JSON.parse(d.jawaban);
+            } catch (e) {}
+
+            const selectedAnswer = jawabanList.find(j => String(j.id) === String(d.jawabanSelect));
+            const correctAnswer = jawabanList.find(j => j.isCorrect);
+
+            return {
+                id: d.id,
+                soal: d.soal,
+                pembahasan: d.pembahasan,
+                jawabanKamu: selectedAnswer ? selectedAnswer.value : (d.jawabanSelect ? d.jawabanSelect : '-'),
+                kunci: correctAnswer ? correctAnswer.value : '-',
+                status: d.isCorrect ? 'Benar' : 'Salah',
+            };
+        });
+
+        // Calculate correct/incorrect counts
+        // benarCount already calculated at line 298
+        const salahCount = await database.generateSoalHistoryDetail.count({
+            where: { generateSoalHistoryId: Number(id), isCorrect: false, jawabanSelect: { not: null } },
+        });
+        const kosongCount = await database.generateSoalHistoryDetail.count({
+            where: { generateSoalHistoryId: Number(id), jawabanSelect: null },
+        });
+
+        // calculatedScore already calculated at line 303
+
         return res.status(200).json({
             data: {
                 ...history,
@@ -298,9 +368,165 @@ const finish = async (req, res, next) => {
                 maxPoint: await database.generateSoalHistoryDetail.aggregate({
                     where: { generateSoalHistoryId: Number(id) },
                     _sum: { maxPoint: true },
-                }).then(res => res._sum.maxPoint || 0)
+                }).then(res => res._sum.maxPoint || 0),
+                summaryTable: formattedSummary,
+                benarCount,
+                salahCount,
+                kosongCount,
+                calculatedScore: Math.round(calculatedScore),
             }
         });
+    } catch (error) {
+        next(error);
+    }
+};
+
+const getStatistic = async (req, res, next) => {
+    try {
+        const { id } = req.params; // History ID
+
+        const history = await database.generateSoalHistory.findFirst({
+            where: { 
+                id: Number(id),
+                ...(req.user.role !== 'ADMIN' ? { userId: Number(req.user.id) } : {}),
+            },
+        });
+
+        if (!history) {
+            return res.status(404).json({ message: 'History not found or unauthorized' });
+        }
+
+        // Calculate total score from details
+        const totalScore = await database.generateSoalHistoryDetail.aggregate({
+            where: { generateSoalHistoryId: Number(id) },
+            _sum: { point: true },
+        });
+
+         // Get stats per category for the result UI
+         const categoryStats = await database.$queryRaw`
+         SELECT 
+             category,
+             SUM(point) as all_point,
+             SUM(maxPoint) as maxPoint,
+             SUM(kkm) as kkm
+         FROM GenerateSoalHistoryDetail
+         WHERE generateSoalHistoryId = ${Number(id)}
+         GROUP BY category
+     `;
+
+        // Get all details for the summary table
+        const details = await database.generateSoalHistoryDetail.findMany({
+            where: { generateSoalHistoryId: Number(id) },
+            orderBy: { id: 'asc' },
+        });
+
+        // Format details for the frontend result table
+        const formattedSummary = details.map(d => {
+            let jawabanList = [];
+            try {
+                jawabanList = JSON.parse(d.jawaban);
+            } catch (e) {}
+
+            const selectedAnswer = jawabanList.find(j => String(j.id) === String(d.jawabanSelect));
+            const correctAnswer = jawabanList.find(j => j.isCorrect);
+
+            return {
+                id: d.id,
+                soal: d.soal,
+                pembahasan: d.pembahasan,
+                jawabanKamu: selectedAnswer ? selectedAnswer.value : (d.jawabanSelect ? d.jawabanSelect : '-'),
+                kunci: correctAnswer ? correctAnswer.value : '-',
+                status: d.isCorrect ? 'Benar' : 'Salah',
+            };
+        });
+
+        // Calculate correct/incorrect counts
+        const benarCount = await database.generateSoalHistoryDetail.count({
+            where: { generateSoalHistoryId: Number(id), isCorrect: true },
+        });
+        const salahCount = await database.generateSoalHistoryDetail.count({
+            where: { generateSoalHistoryId: Number(id), isCorrect: false, jawabanSelect: { not: null } },
+        });
+        const kosongCount = await database.generateSoalHistoryDetail.count({
+            where: { generateSoalHistoryId: Number(id), jawabanSelect: null },
+        });
+
+        // Calculate score based on user requirement: normalized to 100
+        const calculatedScore = history.jumlahSoal > 0 ? (benarCount / history.jumlahSoal) * 100 : 0;
+
+        return res.status(200).json({
+            data: {
+                ...history,
+                pointCategory: categoryStats,
+                point: totalScore._sum.point || 0,
+                maxPoint: await database.generateSoalHistoryDetail.aggregate({
+                    where: { generateSoalHistoryId: Number(id) },
+                    _sum: { maxPoint: true },
+                }).then(res => res._sum.maxPoint || 0),
+                summaryTable: formattedSummary,
+                benarCount,
+                salahCount,
+                kosongCount,
+                calculatedScore: Math.round(calculatedScore),
+            }
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+const adminGetList = async (req, res, next) => {
+    try {
+        const schema = Joi.object({
+            skip: Joi.number(),
+            take: Joi.number(),
+            sortBy: Joi.string(),
+            descending: Joi.boolean(),
+            filters: Joi.object(),
+        }).unknown(true);
+
+        const validate = await schema.validateAsync(req.query);
+        const take = validate.take ? { take: validate.take } : {};
+        const where = {
+            ...filterToJson(validate),
+        };
+
+        const result = await database.$transaction([
+            database.generateSoalHistory.findMany({
+                ...take,
+                skip: validate.skip,
+                orderBy: validate.sortBy ? {
+                    [validate.sortBy]: validate.descending ? 'desc' : 'asc',
+                } : { createdAt: 'desc' },
+                where: where,
+                include: {
+                    user: {
+                        select: {
+                            id: true,
+                            name: true,
+                            email: true
+                        }
+                    }
+                }
+            }),
+            database.generateSoalHistory.count({
+                where: where,
+            }),
+        ]);
+
+        return returnPagination(req, res, result);
+    } catch (error) {
+        next(error);
+    }
+};
+
+const remove = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        await database.generateSoalHistory.delete({
+            where: { id: Number(id) }
+        });
+        return res.status(200).json({ message: 'History deleted' });
     } catch (error) {
         next(error);
     }
@@ -313,4 +539,7 @@ module.exports = {
     getSoalDetail,
     answer,
     finish,
+    getStatistic,
+    adminGetList,
+    remove,
 };

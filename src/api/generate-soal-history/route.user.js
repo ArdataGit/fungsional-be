@@ -12,5 +12,6 @@ router.get('/history/:id', authenticateUser, controller.getHistoryDetail);
 router.get('/soal/:id', authenticateUser, controller.getSoalDetail);
 router.post('/answer', authenticateUser, controller.answer);
 router.post('/finish', authenticateUser, controller.finish);
+router.get('/statistic/:id', authenticateUser, controller.getStatistic);
 
 module.exports = router;
