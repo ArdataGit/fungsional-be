@@ -15,14 +15,15 @@ const upload = (path) => {
       file.mimetype === 'image/png' ||
       file.mimetype === 'image/jpg' ||
       file.mimetype ===
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+      file.mimetype === 'text/csv'
     ) {
       cb(null, true);
     } else {
       cb(
         {
           message:
-            'Unsupported file format (only .png, .jpg and .jpeg format allowed)',
+            'Unsupported file format (only .png, .jpg, .jpeg, .csv and .xlsx format allowed)',
         },
         false
       );

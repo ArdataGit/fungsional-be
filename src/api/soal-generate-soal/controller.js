@@ -1,4 +1,5 @@
 const Joi = require('joi');
+const ExcelJS = require('exceljs');
 const database = require('#database');
 const { returnPagination, returnError } = require('#utils');
 const { BadRequestError } = require('#errors');
@@ -200,17 +201,99 @@ const update = async (req, res, next) => {
 };
 
 const remove = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    await database.soalGenerateSoal.delete({
-      where: { id: parseInt(id) },
-    });
-    res.status(200).json({
-      msg: 'Delete success',
-    });
-  } catch (error) {
-    next(error);
-  }
+    try {
+        const { id } = req.params;
+        await database.soalGenerateSoal.delete({
+            where: { id: parseInt(id) },
+        });
+        res.status(200).json({
+            msg: 'Delete success',
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+const importSoal = async (req, res, next) => {
+    try {
+        const { categoryId } = req.body;
+        if (!req.file) {
+            throw new BadRequestError('File is required');
+        }
+
+        const workbook = new ExcelJS.Workbook();
+        if (req.file.mimetype === 'text/csv') {
+            await workbook.csv.readFile(req.file.path);
+        } else {
+            await workbook.xlsx.readFile(req.file.path);
+        }
+        
+        const worksheet = workbook.getWorksheet(1);
+        const dataToInsert = [];
+
+        worksheet.eachRow((row, rowNumber) => {
+            if (rowNumber === 1) return; // Skip header
+
+            const soal = row.getCell(1).text;
+            const pembahasan = row.getCell(2).text;
+            const tingkatkesulitan = (row.getCell(3).text || 'mudah').toLowerCase();
+            const subCategory = row.getCell(4).text || '';
+
+            const jawaban = [];
+            let point = 0;
+            let jawabanSelect = 0;
+
+            // Mapping for 5 options
+            for (let i = 0; i < 5; i++) {
+                const colIdx = 5 + (i * 3);
+                const value = row.getCell(colIdx).text;
+                const pt = parseInt(row.getCell(colIdx + 1).text) || 0;
+                const isCorrect = String(row.getCell(colIdx + 2).value).toUpperCase() === 'TRUE';
+
+                if (value) {
+                    const jawObj = {
+                        id: i,
+                        value: value,
+                        isCorrect: isCorrect,
+                        point: pt
+                    };
+                    jawaban.push(jawObj);
+                    if (pt > point) point = pt;
+                    if (isCorrect) jawabanSelect = i;
+                }
+            }
+
+            if (soal && jawaban.length > 0) {
+                dataToInsert.push({
+                    generateSoalCategoryId: Number(categoryId),
+                    soal,
+                    pembahasan,
+                    jawaban: JSON.stringify(jawaban),
+                    jawabanSelect: parseInt(jawabanSelect) || 0,
+                    point,
+                    subCategory,
+                    tingkatkesulitansoal: ['mudah', 'sedang', 'sulit'].includes(tingkatkesulitan) ? tingkatkesulitan : 'mudah',
+                    isCorrect: false,
+                    jawabanShow: '',
+                    category: '',
+                    categoryKet: ''
+                });
+            }
+        });
+
+        if (dataToInsert.length > 0) {
+            await database.soalGenerateSoal.createMany({
+                data: dataToInsert
+            });
+        }
+
+        res.status(200).json({
+            msg: `Successfully imported ${dataToInsert.length} questions`,
+        });
+    } catch (error) {
+        console.error('Error import soal:', error);
+        next(error);
+    }
 };
 
 module.exports = {
@@ -219,4 +302,5 @@ module.exports = {
   insert,
   update,
   remove,
+  importSoal,
 };
