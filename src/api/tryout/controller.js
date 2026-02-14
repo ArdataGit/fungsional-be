@@ -395,7 +395,8 @@ const history = async (req, res, next) => {
               GROUP BY ts.category, ts.kkm, ts.maxPoint
           ) subquery
       )`;
-      e.pointCategory = getCat[0]?.val ? JSON.parse(getCat[0]?.val) : [];
+      const val = getCat[0]?.val;
+      e.pointCategory = typeof val === 'string' ? JSON.parse(val) : (val || []);
     });
 
     result[1] =

@@ -8,6 +8,8 @@ const fileRouter = require('#api/file/route.js');
 const manageUserRouter = require('#api/manage-user/route.js');
 const voucherRouter = require('#api/voucher/route.js');
 const bankSoalCategoryRouter = require('#api/bank-soal-kategori/route.js');
+const generateSoalCategoryRouter = require('#api/generate-soal-category/route.js');
+const soalGenerateSoalRouter = require('#api/soal-generate-soal/route.js');
 const bankSoalParentCategoryRouter = require('#api/bank-soal-parent-kategori/route.js');
 const bankSoalRouter = require('#api/bank-soal/route.js');
 const kategoriPaketRouter = require('#api/paket-kategori/route.js');
@@ -58,6 +60,8 @@ router.use('/api/dashboard-notification', dashboardNotificationRouter);
 
 // User routes
 router.use('/api/user/payment-gateway', paymentGatewayRouter);
+router.use('/api/user/generate-soal-category', authenticateUser, require('#api/generate-soal-category/route.user.js'));
+router.use('/api/user/generate-soal-history', authenticateUser, require('../api/generate-soal-history/route.user'));
 router.use('/api/user', authenticateUser, userRouter);
 router.use('/api/user/tryout', tryoutRouter);
 router.use('/api/user/paket-pembelian', paketPembelianUserRouter);
@@ -65,6 +69,8 @@ router.use('/api/user/event', eventUserRouter);
 router.use('/api/user/notification', notificationUserRouter);
 router.use('/api/user', feedbackRouter); // User feedback routes
 router.use('/api/user', affiliateRouter);
+router.use('/api/user', affiliateRouter);
+// Duplicate removed
 router.use('/api/chat-ticket', chatTicketRouter);
 
 //router.use('/api/user/tickets', authenticateUser, ticketRouter); // User ticket routes
@@ -90,6 +96,8 @@ router.use('/api/admin', authenticateUser, authorizeRoles('ADMIN'));
 router.use('/api/admin/users', manageUserRouter);
 router.use('/api/admin/vouchers', voucherRouter);
 router.use('/api/admin/bank-soal-parent-kategori', bankSoalParentCategoryRouter);
+router.use('/api/admin/generate-soal-category', generateSoalCategoryRouter);
+router.use('/api/admin/soal-generate-soal', soalGenerateSoalRouter);
 router.use('/api/admin/bank-soal-kategori', bankSoalCategoryRouter);
 router.use('/api/admin/paket-kategori', kategoriPaketRouter);
 router.use('/api/admin/paket-sub-kategori', subKategoriPaketRouter);
