@@ -1,8 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const { get, find } = require('./controller');
+const controller = require('../parent-generate-soal-category/controller');
 
-router.get('/get', get);
-router.get('/find/:id', find);
+router.get('/get', controller.get);
+router.get('/find/:id', controller.find);
 
 module.exports = router;

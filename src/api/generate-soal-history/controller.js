@@ -57,8 +57,24 @@ const generate = async (req, res, next) => {
         const userId = req.user.id; // Assuming user is authenticated
 
         // 1. Fetch Question Candidates
+        // Find all child categories for the given Parent Category ID
+        const childCategories = await database.generateSoalCategory.findMany({
+            where: {
+                parentId: validate.categoryId
+            },
+            select: { id: true }
+        });
+
+        const childCategoryIds = childCategories.map(c => c.id);
+
+        if (childCategoryIds.length === 0) {
+            return res.status(400).json({
+                message: `Kategori ini belum memiliki sub-kategori atau soal.`,
+            });
+        }
+
         let whereClause = {
-            generateSoalCategoryId: validate.categoryId,
+            generateSoalCategoryId: { in: childCategoryIds },
         };
 
         if (validate.tingkatKesulitan !== 'campur') {
@@ -248,7 +264,7 @@ const answer = async (req, res, next) => {
         // Verify answer
         try {
             const jawabanList = JSON.parse(detail.jawaban);
-            const selected = jawabanList.find(j => j.id === validate.jawabanSelect);
+            const selected = jawabanList.find(j => String(j.id) === String(validate.jawabanSelect));
             if (selected) {
                 isCorrect = selected.isCorrect;
                 // Use point from question or calculated? 
