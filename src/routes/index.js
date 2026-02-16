@@ -38,6 +38,7 @@ const chatTicketRouter = require('#api/chat-ticket/route.js');
 const userActivityRouter = require('#api/user-activity/route.js');
 const testimoniRouter = require('#api/testimoni/route.js');
 const manageKalenderEventRouter = require('#api/manage-kalender-event/route.js');
+const sidebarMenuRouter = require('#api/sidebar-menu/route.js');
 
 const database = require('#database');
 
@@ -72,6 +73,7 @@ router.use('/api/user', affiliateRouter);
 router.use('/api/user', affiliateRouter);
 // Duplicate removed
 router.use('/api/chat-ticket', chatTicketRouter);
+router.use('/api/sidebar-menu', sidebarMenuRouter);
 
 //router.use('/api/user/tickets', authenticateUser, ticketRouter); // User ticket routes
 
@@ -112,5 +114,6 @@ router.use('/api/admin/event', eventRouter);
 router.use('/api/admin/manage-kalender-event', manageKalenderEventRouter);
 router.use('/api/admin/home-section', sectionHomeRouter);
 router.use('/api/admin/notification', notificationRouter);
+router.use('/api/admin/sidebar-menu', sidebarMenuRouter);
 
 module.exports = router;
