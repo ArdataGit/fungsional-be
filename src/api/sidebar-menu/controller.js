@@ -1,14 +1,15 @@
 const Joi = require('joi');
-const { PrismaClient } = require('@prisma/client');
 const { BadRequestError } = require('#errors');
 
-const database = new PrismaClient();
+const database = require('#database');
 
 const getSidebarMenus = async (req, res, next) => {
   try {
+    console.log('[DEBUG] getSidebarMenus called');
     const menus = await database.sidebarMenu.findMany({
       orderBy: { order: 'asc' },
     });
+    console.log('[DEBUG] menus fetched:', menus);
     res.status(200).json({ 
       data: {
         list: menus,
@@ -16,6 +17,7 @@ const getSidebarMenus = async (req, res, next) => {
       }
     });
   } catch (error) {
+    console.error('[DEBUG] Error in getSidebarMenus:', error);
     next(error);
   }
 };
