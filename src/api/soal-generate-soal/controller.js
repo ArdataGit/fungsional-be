@@ -1,3 +1,4 @@
+const path = require('path');
 const Joi = require('joi');
 const ExcelJS = require('exceljs');
 const database = require('#database');
@@ -100,8 +101,6 @@ const insert = async (req, res, next) => {
           isUpdate: Joi.boolean().optional(),
         })
       ).required(),
-      subCategory: Joi.string().allow('', null),
-      point: Joi.number().default(0),
       tingkatkesulitansoal: Joi.string().valid('mudah', 'sedang', 'sulit').default('mudah'),
     });
 
@@ -121,8 +120,8 @@ const insert = async (req, res, next) => {
       jawabanShow: '', // Optional/Legacy?
       jawabanSelect: parseInt(jawabanSelect) || 0,
       isCorrect: false, // Default
-      point: validate.point,
-      subCategory: validate.subCategory || '',
+      point: 0,
+      subCategory: '',
       category: '', // Legacy/Unused?
       categoryKet: '', // Legacy/Unused?
       tingkatkesulitansoal: validate.tingkatkesulitansoal,
@@ -159,8 +158,6 @@ const update = async (req, res, next) => {
           isUpdate: Joi.boolean().optional(),
         })
       ).required(),
-      subCategory: Joi.string().allow('', null),
-      point: Joi.number().allow(null),
       tingkatkesulitansoal: Joi.string().valid('mudah', 'sedang', 'sulit').allow(null),
     }).unknown(true);
 
@@ -176,8 +173,8 @@ const update = async (req, res, next) => {
       pembahasan: validate.pembahasan || '',
       jawaban: JSON.stringify(validate.jawaban),
       jawabanSelect: parseInt(jawabanSelect) || 0,
-      point: validate.point,
-      subCategory: validate.subCategory || '',
+      point: 0,
+      subCategory: '',
     };
 
     if (validate.tingkatkesulitansoal) {
@@ -211,6 +208,11 @@ const remove = async (req, res, next) => {
         next(error);
     }
 };
+const fs = require('fs');
+
+const logDebug = (msg) => {
+    fs.appendFileSync(path.resolve(process.cwd(), 'debug_import.log'), `${new Date().toISOString()} - ${typeof msg === 'object' ? JSON.stringify(msg) : msg}\n`);
+};
 
 const importSoal = async (req, res, next) => {
     try {
@@ -221,68 +223,78 @@ const importSoal = async (req, res, next) => {
 
         const workbook = new ExcelJS.Workbook();
         if (req.file.mimetype === 'text/csv') {
-            await workbook.csv.readFile(req.file.path);
+            await workbook.csv.readFile(path.resolve(process.cwd(), req.file.path), {
+                parserOptions: {
+                    delimiter: ';',
+                    quote: '"'
+                }
+            });
         } else {
-            await workbook.xlsx.readFile(req.file.path);
+            await workbook.xlsx.readFile(path.resolve(process.cwd(), req.file.path));
         }
         
-        const worksheet = workbook.getWorksheet(1);
+        const worksheet = workbook.getWorksheet(1) || workbook.worksheets[0];
         const dataToInsert = [];
+
+        logDebug(`Worksheet found: ${!!worksheet}`);
+        logDebug(`CategoryId: ${categoryId}`);
 
         worksheet.eachRow((row, rowNumber) => {
             if (rowNumber === 1) return; // Skip header
 
-            const soal = row.getCell(1).text;
-            const pembahasan = row.getCell(2).text;
-            const tingkatkesulitan = (row.getCell(3).text || 'mudah').toLowerCase();
-            const subCategory = row.getCell(4).text || '';
+            const soal = row.getCell(1).value?.toString() || '';
+            const pembahasan = row.getCell(2).value?.toString() || '';
+            const tingkatkesulitan = (row.getCell(3).value?.toString() || 'mudah').toLowerCase();
 
             const jawaban = [];
-            let point = 0;
             let jawabanSelect = 0;
 
-            // Mapping for 5 options
+            // Mapping for 5 options (2 columns per option: Text and isCorrect)
             for (let i = 0; i < 5; i++) {
-                const colIdx = 5 + (i * 3);
-                const value = row.getCell(colIdx).text;
-                const pt = parseInt(row.getCell(colIdx + 1).text) || 0;
-                const isCorrect = String(row.getCell(colIdx + 2).value).toUpperCase() === 'TRUE';
+                const colIdx = 4 + (i * 2);
+                const value = row.getCell(colIdx).value?.toString() || '';
+                const isCorrect = String(row.getCell(colIdx + 1).value).toUpperCase() === 'TRUE';
 
                 if (value) {
                     const jawObj = {
                         id: i,
                         value: value,
                         isCorrect: isCorrect,
-                        point: pt
                     };
                     jawaban.push(jawObj);
-                    if (pt > point) point = pt;
                     if (isCorrect) jawabanSelect = i;
                 }
             }
 
+            logDebug(`Row ${rowNumber} parsed: ${JSON.stringify({ soal, jawabanCount: jawaban.length })}`);
+
             if (soal && jawaban.length > 0) {
-                dataToInsert.push({
-                    generateSoalCategoryId: Number(categoryId),
+                const item = {
+                    generateSoalCategoryId: parseInt(categoryId) || 0,
                     soal,
                     pembahasan,
                     jawaban: JSON.stringify(jawaban),
                     jawabanSelect: parseInt(jawabanSelect) || 0,
-                    point,
-                    subCategory,
+                    point: 0,
+                    subCategory: '',
                     tingkatkesulitansoal: ['mudah', 'sedang', 'sulit'].includes(tingkatkesulitan) ? tingkatkesulitan : 'mudah',
                     isCorrect: false,
                     jawabanShow: '',
                     category: '',
                     categoryKet: ''
-                });
+                };
+                logDebug(`Adding to insert batch: ${item.soal.substring(0, 20)}`);
+                dataToInsert.push(item);
             }
         });
 
+        logDebug(`Total items to insert: ${dataToInsert.length}`);
+
         if (dataToInsert.length > 0) {
-            await database.soalGenerateSoal.createMany({
+            const results = await database.soalGenerateSoal.createMany({
                 data: dataToInsert
             });
+            logDebug(`Prisma insert result: ${JSON.stringify(results)}`);
         }
 
         res.status(200).json({
