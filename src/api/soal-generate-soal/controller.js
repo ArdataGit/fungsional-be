@@ -101,6 +101,7 @@ const insert = async (req, res, next) => {
         })
       ).required(),
       subCategory: Joi.string().allow('', null),
+      point: Joi.number().default(0),
       tingkatkesulitansoal: Joi.string().valid('mudah', 'sedang', 'sulit').default('mudah'),
     });
 
@@ -112,10 +113,6 @@ const insert = async (req, res, next) => {
     const correctAnswer = validate.jawaban.find(j => j.isCorrect);
     const jawabanSelect = correctAnswer ? correctAnswer.id : -1;
 
-    // Calculate max point (sum of points or max single point depending on logic)
-    // Assuming simple logic for now
-    const point = validate.jawaban.reduce((max, curr) => (curr.point > max ? curr.point : max), 0);
-
     const data = {
       generateSoalCategoryId: validate.categoryId,
       soal: validate.soal,
@@ -124,7 +121,7 @@ const insert = async (req, res, next) => {
       jawabanShow: '', // Optional/Legacy?
       jawabanSelect: parseInt(jawabanSelect) || 0,
       isCorrect: false, // Default
-      point: point,
+      point: validate.point,
       subCategory: validate.subCategory || '',
       category: '', // Legacy/Unused?
       categoryKet: '', // Legacy/Unused?
@@ -163,6 +160,7 @@ const update = async (req, res, next) => {
         })
       ).required(),
       subCategory: Joi.string().allow('', null),
+      point: Joi.number().allow(null),
       tingkatkesulitansoal: Joi.string().valid('mudah', 'sedang', 'sulit').allow(null),
     }).unknown(true);
 
@@ -178,8 +176,8 @@ const update = async (req, res, next) => {
       pembahasan: validate.pembahasan || '',
       jawaban: JSON.stringify(validate.jawaban),
       jawabanSelect: parseInt(jawabanSelect) || 0,
-       point: point,
-        subCategory: validate.subCategory || '',
+      point: validate.point,
+      subCategory: validate.subCategory || '',
     };
 
     if (validate.tingkatkesulitansoal) {
