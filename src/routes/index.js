@@ -110,8 +110,11 @@ router.use('/api/admin/paket-pembelian', paketPembelianRouter);
 router.use('/api/admin/paket-pembelian-materi', paketPembelianMateriRouter);
 router.use('/api/admin/paket-pembelian-bimbel', paketPembelianBimbelRouter);
 router.use('/api/admin/paket-pembelian-fitur', paketPembelianFiturRouter);
+const parentGenerateSoalCategoryRouter = require('#api/parent-generate-soal-category/route.js');
+
 router.use('/api/admin/event', eventRouter);
 router.use('/api/admin/manage-kalender-event', manageKalenderEventRouter);
+router.use('/api/admin/parent-generate-soal-category', parentGenerateSoalCategoryRouter);
 router.use('/api/admin/home-section', sectionHomeRouter);
 router.use('/api/admin/notification', notificationRouter);
 router.use('/api/admin/sidebar-menu', sidebarMenuRouter);

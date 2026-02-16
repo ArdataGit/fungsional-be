@@ -529,14 +529,27 @@ model ChatTicket {
   @@index([userId], map: "ChatTicket_userId_fkey")
 }
 
+model ParentGenerateSoalCategory {
+  id                   Int                    @id @default(autoincrement())
+  name                 String
+  kkm                  Int
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @default(now()) @updatedAt
+  GenerateSoalCategory GenerateSoalCategory[]
+}
+
 model GenerateSoalCategory {
   id                        Int                         @id @default(autoincrement())
   name                      String
   kkm                       Int
   createdAt                 DateTime                    @default(now())
   updatedAt                 DateTime                    @updatedAt
+  parentId                  Int?
+  parent                    ParentGenerateSoalCategory? @relation(fields: [parentId], references: [id])
   GenerateSoalHistoryDetail GenerateSoalHistoryDetail[]
   SoalGenerateSoal          SoalGenerateSoal[]
+
+  @@index([parentId], map: "GenerateSoalCategory_parentId_fkey")
 }
 
 model SoalGenerateSoal {

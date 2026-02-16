@@ -13,14 +13,14 @@ const get = async (req, res, next) => {
       filters: Joi.object(),
     }).unknown(true);
 
-    console.log('DEBUG: generateSoalCategory get called');
+    console.log('DEBUG: parentGenerateSoalCategory get called');
     console.log('DEBUG: Query:', req.query);
 
     const validate = await schema.validateAsync(req.query);
     const take = validate.take ? { take: validate.take } : {};
 
     const result = await database.$transaction([
-      database.generateSoalCategory.findMany({
+      database.parentGenerateSoalCategory.findMany({
         ...take,
         skip: validate.skip,
         orderBy: validate.sortBy ? {
@@ -28,12 +28,12 @@ const get = async (req, res, next) => {
         } : undefined,
         where: filterToJson(validate),
       }),
-      database.generateSoalCategory.count({
+      database.parentGenerateSoalCategory.count({
         where: filterToJson(validate),
       }),
     ]);
 
-    console.log('GenerateSoalCategory GET Result:', JSON.stringify(result, null, 2));
+    console.log('DEBUG: ParentGenerateSoalCategory GET Result Table:', result[0].length, 'items');
 
     return returnPagination(req, res, result);
   } catch (error) {
@@ -49,13 +49,13 @@ const find = async (req, res, next) => {
 
     const validate = await schema.validateAsync(req.params);
 
-    const result = await database.generateSoalCategory.findUnique({
+    const result = await database.parentGenerateSoalCategory.findUnique({
       where: {
         id: validate.id,
       },
     });
 
-    if (!result) throw new BadRequestError('Category not found');
+    if (!result) throw new BadRequestError('Parent Category not found');
 
     res.status(200).json({
       data: result,
@@ -71,21 +71,19 @@ const insert = async (req, res, next) => {
     const schema = Joi.object({
       name: Joi.string().required(),
       kkm: Joi.number().required(),
-      parentId: Joi.number().allow(null),
     });
 
     const validate = await schema.validateAsync(req.body);
 
-    const result = await database.generateSoalCategory.create({
+    const result = await database.parentGenerateSoalCategory.create({
       data: validate,
     });
 
     res.status(200).json({
       data: result,
-      msg: 'Successfully added Generate Soal Category',
+      msg: 'Successfully added Parent Generate Soal Category',
     });
   } catch (error) {
-    console.error('Error in insert:', error);
     next(error);
   }
 };
@@ -96,7 +94,6 @@ const update = async (req, res, next) => {
       id: Joi.number().required(),
       name: Joi.string().required(),
       kkm: Joi.number().required(),
-      parentId: Joi.number().allow(null),
     }).unknown(true);
 
     const validate = await schema.validateAsync({
@@ -104,31 +101,29 @@ const update = async (req, res, next) => {
       ...req.params,
     });
 
-    const isExist = await database.generateSoalCategory.findUnique({
+    const isExist = await database.parentGenerateSoalCategory.findUnique({
       where: {
         id: validate.id,
       },
     });
 
-    if (!isExist) throw new BadRequestError('Category not found');
+    if (!isExist) throw new BadRequestError('Parent Category not found');
 
-    const result = await database.generateSoalCategory.update({
+    const result = await database.parentGenerateSoalCategory.update({
       where: {
         id: validate.id,
       },
       data: {
         name: validate.name,
         kkm: validate.kkm,
-        parentId: validate.parentId,
       },
     });
 
     res.status(200).json({
       data: result,
-      msg: 'Successfully updated Generate Soal Category',
+      msg: 'Successfully updated Parent Generate Soal Category',
     });
   } catch (error) {
-    console.error('Error in update:', error);
     next(error);
   }
 };
@@ -141,15 +136,21 @@ const remove = async (req, res, next) => {
 
     const validate = await schema.validateAsync(req.params);
 
-    const isExist = await database.generateSoalCategory.findUnique({
+    const isExist = await database.parentGenerateSoalCategory.findUnique({
       where: {
         id: validate.id,
       },
+      include: {
+        GenerateSoalCategory: true
+      }
     });
 
-    if (!isExist) throw new BadRequestError('Category not found');
+    if (!isExist) throw new BadRequestError('Parent Category not found');
+    
+    // Optional: Check if it has children and prevent delete or cascade? 
+    // Prisma onDelete: Cascade should handle it if defined, but we can be explicit.
 
-    const result = await database.generateSoalCategory.delete({
+    const result = await database.parentGenerateSoalCategory.delete({
       where: {
         id: validate.id,
       },
@@ -157,13 +158,14 @@ const remove = async (req, res, next) => {
 
     res.status(200).json({
       data: result,
-      msg: 'Successfully deleted Generate Soal Category',
+      msg: 'Successfully deleted Parent Generate Soal Category',
     });
   } catch (error) {
     next(error);
   }
 };
 
+// Triggering restart for prisma client sync
 module.exports = {
   get,
   find,
