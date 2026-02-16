@@ -457,7 +457,11 @@ const importExcel = async (req, res, next) => {
             soal,
             pembahasan,
             subCategory,
-            categoryId: Number(req.params.id),
+            category: {
+              connect: {
+                id: Number(req.params.id),
+              },
+            },
             BankSoalJawaban: {
               create: jawaban,
             },
