@@ -375,7 +375,7 @@ const importExcel = async (req, res, next) => {
     await readXlsxFile(fs.createReadStream(exFile)).then(async (rows) => {
       rows.shift();
 
-      await rows.forEach(async (row, index) => {
+      rows.forEach((row, index) => {
         const [, soal, , , , , , , , , , , , jawabanBenar] = row;
         if (!soal)
           return error.push(`Nomor ${index + 1},  Soal tidak boleh kosong`);
@@ -400,7 +400,7 @@ const importExcel = async (req, res, next) => {
 
       if (error.length > 0) return false;
 
-      await rows.forEach(async (row) => {
+      for (const row of rows) {
         const [
           subCategory,
           soal,
@@ -467,7 +467,7 @@ const importExcel = async (req, res, next) => {
             },
           },
         });
-      });
+      }
     });
 
     if (error.length > 0) {
