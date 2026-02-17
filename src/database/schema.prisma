@@ -539,17 +539,14 @@ model ParentGenerateSoalCategory {
 }
 
 model GenerateSoalCategory {
-  id                        Int                         @id @default(autoincrement())
-  name                      String
-  kkm                       Int
-  createdAt                 DateTime                    @default(now())
-  updatedAt                 DateTime                    @updatedAt
-  parentId                  Int?
-  parent                    ParentGenerateSoalCategory? @relation(fields: [parentId], references: [id])
-  GenerateSoalHistoryDetail GenerateSoalHistoryDetail[]
-  SoalGenerateSoal          SoalGenerateSoal[]
-
-  @@index([parentId], map: "GenerateSoalCategory_parentId_fkey")
+  id                         Int                          @id @default(autoincrement())
+  name                       String
+  kkm                        Int
+  createdAt                  DateTime                     @default(now())
+  updatedAt                  DateTime                     @updatedAt
+  GenerateSoalHistoryDetail  GenerateSoalHistoryDetail[]
+  SoalGenerateSoal           SoalGenerateSoal[]
+  ParentGenerateSoalCategory ParentGenerateSoalCategory[]
 }
 
 model SoalGenerateSoal {

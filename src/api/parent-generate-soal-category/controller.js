@@ -53,6 +53,9 @@ const find = async (req, res, next) => {
       where: {
         id: validate.id,
       },
+      include: {
+        GenerateSoalCategory: true,
+      },
     });
 
     if (!result) throw new BadRequestError('Parent Category not found');
@@ -71,12 +74,19 @@ const insert = async (req, res, next) => {
     const schema = Joi.object({
       name: Joi.string().required(),
       kkm: Joi.number().required(),
+      categoryIds: Joi.array().items(Joi.number()).optional(),
     });
 
     const validate = await schema.validateAsync(req.body);
+    const { categoryIds, ...data } = validate;
 
     const result = await database.parentGenerateSoalCategory.create({
-      data: validate,
+      data: {
+        ...data,
+        GenerateSoalCategory: categoryIds ? {
+          connect: categoryIds.map(id => ({ id }))
+        } : undefined
+      },
     });
 
     res.status(200).json({
@@ -94,6 +104,7 @@ const update = async (req, res, next) => {
       id: Joi.number().required(),
       name: Joi.string().required(),
       kkm: Joi.number().required(),
+      categoryIds: Joi.array().items(Joi.number()).optional(),
     }).unknown(true);
 
     const validate = await schema.validateAsync({
@@ -116,6 +127,9 @@ const update = async (req, res, next) => {
       data: {
         name: validate.name,
         kkm: validate.kkm,
+        GenerateSoalCategory: validate.categoryIds ? {
+          set: validate.categoryIds.map(id => ({ id }))
+        } : undefined,
       },
     });
 

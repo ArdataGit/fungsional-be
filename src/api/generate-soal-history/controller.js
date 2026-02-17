@@ -60,7 +60,11 @@ const generate = async (req, res, next) => {
         // Find all child categories for the given Parent Category ID
         const childCategories = await database.generateSoalCategory.findMany({
             where: {
-                parentId: validate.categoryId
+                ParentGenerateSoalCategory: {
+                    some: {
+                        id: validate.categoryId
+                    }
+                }
             },
             select: { id: true }
         });

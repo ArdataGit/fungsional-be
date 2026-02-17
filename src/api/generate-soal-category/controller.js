@@ -71,13 +71,19 @@ const insert = async (req, res, next) => {
     const schema = Joi.object({
       name: Joi.string().required(),
       kkm: Joi.number().required(),
-      parentId: Joi.number().allow(null),
+      parentIds: Joi.array().items(Joi.number()).optional(),
     });
 
     const validate = await schema.validateAsync(req.body);
+    const { parentIds, ...data } = validate;
 
     const result = await database.generateSoalCategory.create({
-      data: validate,
+      data: {
+        ...data,
+        ParentGenerateSoalCategory: parentIds ? {
+          connect: parentIds.map(id => ({ id }))
+        } : undefined
+      },
     });
 
     res.status(200).json({
@@ -96,7 +102,7 @@ const update = async (req, res, next) => {
       id: Joi.number().required(),
       name: Joi.string().required(),
       kkm: Joi.number().required(),
-      parentId: Joi.number().allow(null),
+      parentIds: Joi.array().items(Joi.number()).optional(),
     }).unknown(true);
 
     const validate = await schema.validateAsync({
@@ -119,7 +125,9 @@ const update = async (req, res, next) => {
       data: {
         name: validate.name,
         kkm: validate.kkm,
-        parentId: validate.parentId,
+        ParentGenerateSoalCategory: validate.parentIds ? {
+          set: validate.parentIds.map(id => ({ id }))
+        } : undefined,
       },
     });
 
