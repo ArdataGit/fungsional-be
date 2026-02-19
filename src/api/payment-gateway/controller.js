@@ -34,6 +34,9 @@ const get = async (req, res, next) => {
           userId: req?.user?.id,
           ...filterToJson(validate),
         },
+        include: {
+          paketPembelian: true,
+        },
       }),
       database.pembelian.count({
         where: {
