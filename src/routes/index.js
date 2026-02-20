@@ -39,6 +39,8 @@ const userActivityRouter = require('#api/user-activity/route.js');
 const testimoniRouter = require('#api/testimoni/route.js');
 const manageKalenderEventRouter = require('#api/manage-kalender-event/route.js');
 const sidebarMenuRouter = require('#api/sidebar-menu/route.js');
+const manageWhatsappAdminRouter = require('#api/manage-whatsapp-admin/route.js');
+const { getPublicWhatsapp } = require('#api/manage-whatsapp-admin/controller.js');
 
 const database = require('#database');
 
@@ -80,6 +82,7 @@ router.use('/api/sidebar-menu', sidebarMenuRouter);
 // Admin routes
 // Public/Shared routes
 router.use('/api/testimoni', testimoniRouter);
+router.get('/api/whatsapp-admin/public', getPublicWhatsapp);
 // Also enable admin path for compatibility
 router.use('/api/admin/testimoni', testimoniRouter);
 router.use('/api/admin/bank-soal', bankSoalRouter);
@@ -118,5 +121,6 @@ router.use('/api/admin/parent-generate-soal-category', parentGenerateSoalCategor
 router.use('/api/admin/home-section', sectionHomeRouter);
 router.use('/api/admin/notification', notificationRouter);
 router.use('/api/admin/sidebar-menu', sidebarMenuRouter);
+router.use('/api/admin/whatsapp-admin', manageWhatsappAdminRouter);
 
 module.exports = router;
